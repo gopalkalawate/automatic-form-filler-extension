@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "PatientVoiceFiller",
+  "version": "1.0.0",
+  "description": "Voice to Medical Form Filler",
+  "action": {
+    "default_popup": "index.html"
+  },
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "src/content/scanner.ts",
+        "src/content/injector.ts"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "offscreen",
+    "storage"
+  ]
+}

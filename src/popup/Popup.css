@@ -1,0 +1,74 @@
+.popup-container {
+  width: 320px;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  text-align: center;
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+header h2 {
+  margin-top: 0;
+  color: #2563eb;
+  font-size: 1.25rem;
+}
+
+header p {
+  font-size: 0.9rem;
+  color: #4b5563;
+  margin-bottom: 20px;
+}
+
+.controls {
+  margin: 20px 0;
+}
+
+.btn {
+  padding: 10px 20px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.btn.primary {
+  background-color: #2563eb;
+  color: white;
+}
+
+.btn.primary:hover {
+  background-color: #1d4ed8;
+}
+
+.btn.danger {
+  background-color: #dc2626;
+  color: white;
+  animation: pulse 1.5s infinite;
+}
+
+.btn.danger:hover {
+  background-color: #b91c1c;
+}
+
+.status-area {
+  margin-top: 15px;
+  font-size: 0.85rem;
+  min-height: 40px;
+}
+
+.status-text {
+  color: #059669;
+}
+
+.error-text {
+  color: #dc2626;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
