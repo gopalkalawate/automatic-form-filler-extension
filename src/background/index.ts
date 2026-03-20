@@ -7,7 +7,8 @@
  */
 
 // Basic config mapping, matching en.json
-const BACKEND_URL = 'http://localhost:5050/api/parse';
+const BACKEND_TRANSCRIBE_URL = 'http://localhost:5050/api/transcribe';
+const BACKEND_PARSE_URL = 'http://localhost:5050/api/parse';
 
 // Handle messages from Popup
 chrome.runtime.onMessage.addListener((request: any, _sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
@@ -18,7 +19,11 @@ chrome.runtime.onMessage.addListener((request: any, _sender: chrome.runtime.Mess
     }
     console.log("After Starting recording...");
     if (request.action === 'STOP_AND_PROCESS') {
-        handleStopAndProcess().then(result => sendResponse({ success: true, result })).catch(err => sendResponse({ success: false, error: err.message }));
+        handleStopAndProcess().then(result => sendResponse({ success: true, text: result })).catch(err => sendResponse({ success: false, error: err.message }));
+        return true;
+    }
+    if (request.action === 'PARSE_FIELDS') {
+        handleParseFields(request.text).then(result => sendResponse({ success: true, result })).catch(err => sendResponse({ success: false, error: err.message }));
         return true;
     }
 
@@ -57,32 +62,14 @@ async function handleStopAndProcess() {
     }
     
     const audioDataUrl = audioResponse.audioDataUrl;
-    console.log('[PatientVoiceFiller Background] Audio captured.');
+    console.log('[PatientVoiceFiller Background] Audio captured. Uploading to transcribe...');
 
-    // 2. Query Active Tab for Form Fields (Scanner)
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab.id) throw new Error('No active window found.');
-
-    console.log('[PatientVoiceFiller Background] Scanning tab for fields...');
-    const scanResponse = await chrome.tabs.sendMessage(tab.id, { action: 'SCAN_FIELDS' });
-    const fieldsMap = scanResponse?.fields;
-    console.log('[PatientVoiceFiller Background] Fields found:', fieldsMap);
-    if (!fieldsMap || Object.keys(fieldsMap).length === 0) {
-        throw new Error('No compatible form fields found on the active page.');
-    }
-
-    // 3. Send Audio + Fields Map to Node Framework
-    console.log('[PatientVoiceFiller Background] Uploading to backend...');
     const formData = new FormData();
-    
-    // Convert base64 data url back to Blob
     const response = await fetch(audioDataUrl);
     const audioBlob = await response.blob();
-    
     formData.append('audio', audioBlob, 'recording.webm');
-    formData.append('fieldsMap', JSON.stringify(fieldsMap));
 
-    const backendRes = await fetch(BACKEND_URL, {
+    const backendRes = await fetch(BACKEND_TRANSCRIBE_URL, {
         method: 'POST',
         body: formData
     });
@@ -92,17 +79,49 @@ async function handleStopAndProcess() {
         throw new Error(`Backend Error: ${errorData}`);
     }
 
-    const { mappedValues, text } = await backendRes.json();
+    const { text } = await backendRes.json();
+    console.log(`[PatientVoiceFiller Background] Transcribed Text:`, text);
+    return text;
+}
+
+async function handleParseFields(text: string) {
+    // 1. Query Active Tab for Form Fields (Scanner)
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab.id) throw new Error('No active window found.');
+
+    console.log('[PatientVoiceFiller Background] Scanning tab for fields...');
+    const scanResponse = await chrome.tabs.sendMessage(tab.id, { action: 'SCAN_FIELDS' });
+    const fieldsMap = scanResponse?.fields;
+    console.log('[PatientVoiceFiller Background] Fields found:', fieldsMap);
+
+    if (!fieldsMap || Object.keys(fieldsMap).length === 0) {
+        throw new Error('No compatible form fields found on the active page.');
+    }
+
+    // 2. Send Text + Fields Map to Node Framework
+    console.log('[PatientVoiceFiller Background] Uploading text to parse...');
+    const backendRes = await fetch(BACKEND_PARSE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, fieldsMap })
+    });
+
+    if (!backendRes.ok) {
+        const errorData = await backendRes.text();
+        throw new Error(`Backend Error: ${errorData}`);
+    }
+
+    const { mappedValues } = await backendRes.json();
     console.log(`[PatientVoiceFiller Background] Mapped Values from Server:`, mappedValues);
 
-    // 4. Send Mapped Values to Injector Script
+    // 3. Send Mapped Values to Injector Script
     console.log('[PatientVoiceFiller Background] Injecting values into page...');
     await chrome.tabs.sendMessage(tab.id, {
         action: 'INJECT_FIELDS',
         mappedValues
     });
 
-    return { text, mappedValues };
+    return mappedValues;
 }
 
 

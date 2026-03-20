@@ -5,6 +5,8 @@ const Popup: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [transcribedText, setTranscribedText] = useState<string>('');
+  const [isTextVisible, setIsTextVisible] = useState(false);
 
   const startRecording = async () => {
     setError(null);
@@ -39,13 +41,31 @@ const Popup: React.FC = () => {
   };
 
   const stopAndProcess = async () => {
-    setStatus('Processing audio and mapping fields...');
+    setStatus('Processing audio into text...');
     setIsRecording(false);
     
     try {
       chrome.runtime.sendMessage({ action: 'STOP_AND_PROCESS' }, (res: any) => {
         if (!res?.success) {
            setError(res?.error || 'Failed to process audio');
+           setStatus('');
+        } else {
+            setStatus('Transcription complete.');
+            setTranscribedText(res.text);
+        }
+      });
+    } catch (err: any) {
+      setError(err.message);
+      setStatus('');
+    }
+  };
+
+  const tryParse = async () => {
+    setStatus('Mapping text to form fields...');
+    try {
+      chrome.runtime.sendMessage({ action: 'PARSE_FIELDS', text: transcribedText }, (res: any) => {
+        if (!res?.success) {
+           setError(res?.error || 'Failed to parse text');
            setStatus('');
         } else {
             setStatus('Success! Fields populated.');
@@ -74,7 +94,33 @@ const Popup: React.FC = () => {
             Stop & Process
           </button>
         )}
+
+        {transcribedText && (
+          <button className="btn secondary" onClick={tryParse} style={{marginLeft: '10px', marginTop: '10px'}}>
+            Try Parse
+          </button>
+        )}
       </div>
+
+      {transcribedText && (
+        <div className="transcript-container" style={{marginTop: '15px', border: '1px solid #ccc', borderRadius: '4px'}}>
+          <div 
+            className="transcript-header" 
+            onClick={() => setIsTextVisible(!isTextVisible)}
+            style={{padding: '8px', cursor: 'pointer', backgroundColor: '#f5f5f5'}}
+          >
+            <strong>View Text {isTextVisible ? '▲' : '▼'}</strong>
+          </div>
+          {isTextVisible && (
+            <textarea 
+               className="transcript-box" 
+               value={transcribedText}
+               onChange={(e) => setTranscribedText(e.target.value)}
+               style={{width: '95%', height: '80px', margin: '8px', padding: '4px'}}
+            />
+          )}
+        </div>
+      )}
 
       <div className="status-area">
         {status && <p className="status-text">{status}</p>}

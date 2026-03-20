@@ -26,17 +26,32 @@ chrome.runtime.onMessage.addListener((message: any, _sender: chrome.runtime.Mess
 
 async function startRecording() {
     audioChunks = [];
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     
-    mediaRecorder = new MediaRecorder(stream);
+    // Explicitly request ideal audio quality constraints
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+        } 
+    });
+    
+    // Explicitly set the MIME type
+    let options = { mimeType: 'audio/webm' };
+    if (!MediaRecorder.isTypeSupported('audio/webm')) {
+        options = { mimeType: '' }; // Fallback to browser default if webm is unsupported
+    }
+
+    mediaRecorder = new MediaRecorder(stream, options);
     
     mediaRecorder.ondataavailable = event => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
             audioChunks.push(event.data);
         }
     };
     
-    mediaRecorder.start();
+    // Start pushing data every 250ms to ensure the track commits properly
+    mediaRecorder.start(250);
 }
 
 async function stopRecording(): Promise<string> {
