@@ -6,9 +6,9 @@
  * sends mapped values to injector script.
  */
 
-// Basic config mapping, matching en.json
-const BACKEND_TRANSCRIBE_URL = 'http://localhost:5050/api/transcribe';
-const BACKEND_PARSE_URL = 'http://localhost:5050/api/parse';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'automatic-form-filler-backend-verce.vercel.app';
+const BACKEND_TRANSCRIBE_URL = `${BACKEND_URL}/api/transcribe`;
+const BACKEND_PARSE_URL = `${BACKEND_URL}/api/parse`;
 
 // Handle messages from Popup
 chrome.runtime.onMessage.addListener((request: any, _sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {

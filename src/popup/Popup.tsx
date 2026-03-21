@@ -2,58 +2,55 @@ import React, { useState } from 'react';
 import './Popup.css';
 
 const Popup: React.FC = () => {
-  const [isRecording, setIsRecording] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [transcribedText, setTranscribedText] = useState<string>('');
-  const [isTextVisible, setIsTextVisible] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
 
-  const startRecording = async () => {
-    setError(null);
-    setStatus('Recording... Speak your symptoms clearly.');
-    setIsRecording(true);
-    
-    try {
-      // Request mic permission fully in the interactive Popup so Chrome can ask the user safely
-      const stream = await window.navigator.mediaDevices.getUserMedia({ audio: true });
-      // Stop it immediately since the offscreen doc handles the actual recording
-      stream.getTracks().forEach(track => track.stop());
-    } catch (err: any) {
-      setError('Microphone access denied. Please click the extension icon and allow microphone permissions.');
-      setIsRecording(false);
-      setStatus('');
-      return;
-    }
-    
-    try {
-      chrome.runtime.sendMessage({ action: 'START_RECORDING' }, (res: any) => {
-        if (!res?.success) {
-           setError(res?.error || 'Failed to start recording');
-           setIsRecording(false);
-           setStatus('');
-        }
-      });
-    } catch (err: any) {
-      setError(err.message);
-      setIsRecording(false);
-      setStatus('');
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (audioUrl) {
+         URL.revokeObjectURL(audioUrl);
+      }
+      const objectUrl = URL.createObjectURL(file);
+      setAudioUrl(objectUrl);
+      setAudioFile(file);
+      setStatus(`File selected: ${file.name}`);
+      setTranscribedText('');
+      setError(null);
     }
   };
 
-  const stopAndProcess = async () => {
-    setStatus('Processing audio into text...');
-    setIsRecording(false);
-    
+  const translateAudio = async () => {
+    if (!audioFile) {
+      setError('No audio file selected.');
+      return;
+    }
+
+    setStatus('Translating audio...');
+    setError(null);
+    setTranscribedText('');
+
     try {
-      chrome.runtime.sendMessage({ action: 'STOP_AND_PROCESS' }, (res: any) => {
-        if (!res?.success) {
-           setError(res?.error || 'Failed to process audio');
-           setStatus('');
-        } else {
-            setStatus('Transcription complete.');
-            setTranscribedText(res.text);
-        }
+      const formData = new FormData();
+      formData.append('audio', audioFile);
+
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5050';
+      const backendRes = await fetch(`${backendUrl}/api/transcribe`, {
+        method: 'POST',
+        body: formData
       });
+
+      if (!backendRes.ok) {
+        const errText = await backendRes.text();
+        throw new Error(`Backend error: ${errText}`);
+      }
+
+      const result = await backendRes.json();
+      setStatus('Transcription complete.');
+      setTranscribedText(result.text);
     } catch (err: any) {
       setError(err.message);
       setStatus('');
@@ -85,14 +82,23 @@ const Popup: React.FC = () => {
       </header>
 
       <div className="controls">
-        {!isRecording ? (
-          <button className="btn primary" onClick={startRecording}>
-            Start Recording
-          </button>
-        ) : (
-          <button className="btn danger" onClick={stopAndProcess}>
-            Stop & Process
-          </button>
+        <label className="btn primary" style={{ display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+          Upload Voice Memo
+          <input 
+            type="file" 
+            accept=".flac,.mp3,.mp4,.mpeg,.mpga,.m4a,.ogg,.wav,.webm" 
+            onChange={handleFileChange} 
+            style={{ display: 'none' }}
+          />
+        </label>
+
+        {audioUrl && (
+          <div style={{ marginTop: '15px' }}>
+            <audio src={audioUrl} controls style={{ width: '100%', marginBottom: '10px' }} />
+            <button className="btn primary" onClick={translateAudio}>
+              Translate Audio
+            </button>
+          </div>
         )}
 
         {transcribedText && (
@@ -103,22 +109,14 @@ const Popup: React.FC = () => {
       </div>
 
       {transcribedText && (
-        <div className="transcript-container" style={{marginTop: '15px', border: '1px solid #ccc', borderRadius: '4px'}}>
-          <div 
-            className="transcript-header" 
-            onClick={() => setIsTextVisible(!isTextVisible)}
-            style={{padding: '8px', cursor: 'pointer', backgroundColor: '#f5f5f5'}}
-          >
-            <strong>View Text {isTextVisible ? '▲' : '▼'}</strong>
-          </div>
-          {isTextVisible && (
-            <textarea 
-               className="transcript-box" 
-               value={transcribedText}
-               onChange={(e) => setTranscribedText(e.target.value)}
-               style={{width: '95%', height: '80px', margin: '8px', padding: '4px'}}
-            />
-          )}
+        <div className="transcript-container" style={{marginTop: '15px', border: '1px solid #ccc', borderRadius: '4px', padding: '8px'}}>
+          <strong style={{ display: 'block', marginBottom: '8px', textAlign: 'left' }}>Transcription:</strong>
+          <textarea 
+             className="transcript-box" 
+             value={transcribedText}
+             onChange={(e) => setTranscribedText(e.target.value)}
+             style={{width: '100%', height: '80px', padding: '4px', boxSizing: 'border-box'}}
+          />
         </div>
       )}
 
