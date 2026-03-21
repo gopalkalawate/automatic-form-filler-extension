@@ -3,8 +3,9 @@
   "name": "PatientVoiceFiller",
   "version": "1.0.0",
   "description": "Voice to Medical Form Filler",
-  "action": {
-    "default_popup": "index.html"
+  "action": {},
+  "side_panel": {
+    "default_path": "index.html"
   },
   "background": {
     "service_worker": "src/background/index.ts",
@@ -27,6 +28,7 @@
     "activeTab",
     "scripting",
     "offscreen",
-    "storage"
+    "storage",
+    "sidePanel"
   ]
 }

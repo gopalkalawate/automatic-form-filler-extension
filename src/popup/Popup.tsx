@@ -37,7 +37,10 @@ const Popup: React.FC = () => {
       const formData = new FormData();
       formData.append('audio', audioFile);
 
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5050';
+      let backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://automatic-form-filler-backend-verce.vercel.app';
+      if (!backendUrl.startsWith('http')) {
+          backendUrl = 'https://' + backendUrl;
+      }
       const backendRes = await fetch(`${backendUrl}/api/transcribe`, {
         method: 'POST',
         body: formData

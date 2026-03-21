@@ -6,11 +6,18 @@
  * sends mapped values to injector script.
  */
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'automatic-form-filler-backend-verce.vercel.app';
+let BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://automatic-form-filler-backend-verce.vercel.app';
+if (!BACKEND_URL.startsWith('http')) {
+    BACKEND_URL = 'https://' + BACKEND_URL;
+}
 const BACKEND_TRANSCRIBE_URL = `${BACKEND_URL}/api/transcribe`;
 const BACKEND_PARSE_URL = `${BACKEND_URL}/api/parse`;
 
 // Handle messages from Popup
+
+// Allow users to open the side panel by clicking on the action toolbar icon
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
+
 chrome.runtime.onMessage.addListener((request: any, _sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
     console.log("Before Starting recording...");
     if (request.action === 'START_RECORDING') {
